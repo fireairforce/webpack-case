@@ -5,7 +5,7 @@ module.exports = function(source){  // 这里是不能使用箭头函数的
     const callback = this.async();
 
     setTimeout(()=>{
-        const result = source.replace('hello',options.name);
+        const result = source.replace('zoomdong',options.name);
         callback(null,result);
     },1000)
 } 
