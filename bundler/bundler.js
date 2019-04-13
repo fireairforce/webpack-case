@@ -5,24 +5,28 @@ const parser = require('@babel/parser');
 const traverse = require('@babel/traverse').default;
 const babel = require('@babel/core');
 
-const moduleAnalyser = (filename) =>{
-    const content = fs.readFileSync(filename,'utf-8');
-    const ast = (parser.parse(content,{
-        sourceType:'module',
+const moduleAnalyser = (filename) => {
+    const content = fs.readFileSync(filename, 'utf-8');
+    const ast = (parser.parse(content, {
+        sourceType: 'module',
     }))
     const dependencies = {};
-    traverse(ast,{
-        ImportDeclaration({ node }){
+    traverse(ast, {
+        ImportDeclaration({
+            node
+        }) {
             const dirname = path.dirname(filename)
-            const newFile = './' + path.join(dirname,node.source.value)  // 这个是我们打包的时候要使用的路径
+            const newFile = './' + path.join(dirname, node.source.value) // 这个是我们打包的时候要使用的路径
             // console.log(newFile);
-           // console.log(node);
-           dependencies[node.source.value]= newFile;
-        //    console.log(dependencies); //对入口文件的依赖分析
+            // console.log(node);
+            dependencies[node.source.value] = newFile;
+            //    console.log(dependencies); //对入口文件的依赖分析
         }
     });
     // 把抽象语法树转换为一个对象,这个时候的code和之前见到的就不同了.(成了一端翻译好的代码了)
-    const { code } = babel.transformFromAst(ast,null,{ 
+    const {
+        code
+    } = babel.transformFromAst(ast, null, {
         presets: ["@babel/preset-env"]
     });
     // console.log(code);
@@ -33,6 +37,34 @@ const moduleAnalyser = (filename) =>{
     }
     // console.log(ast.program.body);
 }
-const moduleInfo = moduleAnalyser('./src/index.js');
 
-console.log(moduleInfo);
+const makeDependenciesGraph = (entry) => {
+    // 拿到对入口文件做的依赖的方式
+    const entryModule = moduleAnalyser(entry);
+    const graphArray = [entryModule];
+    for (let i = 0; i < graphArray.length; i++) {
+       const item = graphArray[i];
+       const { dependencies } = item;
+       if(dependencies) {
+           for(let j in dependencies) {
+               graphArray.push(moduleAnalyser(dependencies[j]));
+             // moduleAnalyser(dependencies[j]) // 达到一个递归的作用，拿到每一个依赖
+           }
+       }
+    }
+    const graph = {};
+    graphArray.forEach((item)=>{
+        graph[item.filename] = {
+            dependencies: item.dependencies,
+            code: item.code
+        }
+    })
+    // console.log(graph);
+    return graph;
+}
+
+
+const graphInfo = makeDependenciesGraph('./src/index.js');
+
+
+const moduleInfo = moduleAnalyser('./src/index.js');
