@@ -7,9 +7,9 @@ const babel = require('@babel/core');
 
 const moduleAnalyser = (filename) => {
     const content = fs.readFileSync(filename, 'utf-8');
-    const ast = (parser.parse(content, {
+    const ast = parser.parse(content, {
         sourceType: 'module',
-    }))
+    })
     const dependencies = {};
     traverse(ast, {
         ImportDeclaration({
@@ -63,8 +63,28 @@ const makeDependenciesGraph = (entry) => {
     return graph;
 }
 
+// 一个生成代码的函数,把src目录下不能运行的内容打包成可以使用的代码
 
+const generator = (entry) => {
+    const graph = JSON.stringify(makeDependenciesGraph(entry));
+    return `
+      (function(){
+         function require(module){
+             function localRequire(relativePath){
+                 return require(graph[module].dependencies[relativePath])
+             }
+             var exports = {};
+            (function(require,exports,code){
+                eval(code)
+            })(localRequire , exports, graph[module].code);
+            return exports;
+         };
+         require('${entry}')
+      })(${graph})
+    `;
+}
+
+const code = generator('./src/index.js');
+// console.log(code);
 const graphInfo = makeDependenciesGraph('./src/index.js');
-
-
 const moduleInfo = moduleAnalyser('./src/index.js');
